@@ -48,7 +48,9 @@ Criar solicitação:
 curl -i -X POST http://localhost:8080/api/v1/requests -H "Content-Type: application/json" -d '{"externalId":"EXT-12345","customerId":"CUST-10001","productCode":"INTERNET-500"}'
 ```
 
-A resposta é `201 Created`, com o endereço de consulta no header `Location`. O estado inicial é `PENDING`.
+A primeira criação retorna `201 Created`, com o endereço de consulta no header `Location`. O estado inicial é `PENDING`.
+
+O `externalId` identifica a solicitação no sistema de origem. Se o mesmo `externalId` for enviado novamente com `customerId` e `productCode` idênticos, a API retorna `200 OK` com o registro original, sem criar outro. Se qualquer um desses campos mudar, retorna `409 Conflict` com uma mensagem explicando o conflito. Isso permite repetir uma chamada após perder a resposta HTTP sem criar uma segunda solicitação.
 
 Consultar solicitação:
 
@@ -72,10 +74,11 @@ $created
 Invoke-RestMethod -Uri "http://localhost:8080/api/v1/requests/$($created.id)"
 ```
 
-O esquema do banco é criado pela migração Flyway `V1__create_activation_requests.sql`. O banco impede a repetição de `externalId` por uma restrição única; a resposta da API para esse caso será definida na próxima etapa.
+O esquema do banco é criado pela migração Flyway `V1__create_activation_requests.sql`. A restrição `UNIQUE` em `external_id` garante que apenas um registro seja criado, mesmo se duas chamadas chegarem simultaneamente. A aplicação faz a inserção em uma transação do repositório; se a restrição rejeitar a inserção, essa transação termina e a aplicação consulta o registro vencedor em uma operação independente. Uma consulta prévia seguida de inserção, sem essa restrição, não impediria a corrida.
+
+Os testes automatizados cobrem criação, validação, consulta, repetição idêntica, conflito e seis chamadas simultâneas com o mesmo `externalId`. Eles usam H2 em memória. O comportamento com concorrência também foi verificado manualmente com a aplicação e o PostgreSQL iniciados pelo Docker Compose.
 
 ## Próximas etapas
 
-1. Definir a resposta para repetição de `externalId` e testar concorrência.
-2. Integrar o provedor simulado e controlar transições de status.
-3. Padronizar erros, analisar o cenário de produção e concluir a documentação.
+1. Integrar o provedor simulado e controlar transições de status.
+2. Padronizar os demais erros, analisar o cenário de produção e concluir a documentação.

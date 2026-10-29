@@ -24,9 +24,12 @@ public class ActivationRequestController {
 
     @PostMapping
     public ResponseEntity<ActivationRequestResponse> create(@Valid @RequestBody CreateActivationRequest input) {
-        ActivationRequestResponse created = service.create(input);
-        URI location = URI.create("/api/v1/requests/" + created.id());
-        return ResponseEntity.created(location).body(created);
+        ActivationRequestService.CreationResult result = service.create(input);
+        if (!result.created()) {
+            return ResponseEntity.ok(result.response());
+        }
+        URI location = URI.create("/api/v1/requests/" + result.response().id());
+        return ResponseEntity.created(location).body(result.response());
     }
 
     @GetMapping("/{id}")
