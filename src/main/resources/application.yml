@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: activation-service
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5433/activation}
+    username: ${DB_USERNAME:activation}
+    password: ${DB_PASSWORD:activation}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
