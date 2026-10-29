@@ -42,7 +42,13 @@ O endereço padrão do banco é `jdbc:postgresql://localhost:5433/activation`; o
 mvn verify
 ```
 
-Os testes da API usam H2 em memória e simulam as respostas do cliente HTTP. A aplicação usa PostgreSQL e WireMock; o build não precisa desses serviços ativos.
+Esse comando roda os testes da API com H2 em memória e respostas simuladas do cliente HTTP. Para incluir os testes de concorrência com PostgreSQL real, tenha o Docker Desktop ativo e execute:
+
+```sh
+mvn -Ppostgres-it verify
+```
+
+O perfil `postgres-it` inicia um PostgreSQL temporário com Testcontainers, executa os testes e encerra o contêiner. O pipeline em `.github/workflows/ci.yml` executa esse perfil automaticamente no GitHub em pushes e pull requests. O build normal e o Dockerfile não precisam iniciar um contêiner dentro de outro.
 
 ## API disponível
 
@@ -120,7 +126,7 @@ O POST exigiria o escopo `activation:write` e o GET, `activation:read`. Também 
 
 ## Testes
 
-`mvn verify` executa testes com H2 em memória. Eles cobrem criação, validação, consulta, repetição idêntica, conflito, seis chamadas simultâneas com o mesmo `externalId`, sucesso, rejeição e falha temporária do provedor, recuperação após queda e ocultação de erros internos. O provedor é simulado nos testes automatizados; o fluxo HTTP real foi verificado manualmente com PostgreSQL e WireMock no Compose, incluindo sucesso, `400`, `500` e timeout. Testcontainers com PostgreSQL real em um teste automatizado é uma evolução possível para a concorrência.
+`mvn verify` executa testes com H2 em memória. Eles cobrem criação, validação, consulta, repetição idêntica, conflito, seis chamadas simultâneas com o mesmo `externalId`, sucesso, rejeição e falha temporária do provedor, recuperação após queda e ocultação de erros internos. `mvn -Ppostgres-it verify` acrescenta dois testes de concorrência com PostgreSQL real: chamadas idênticas e chamadas conflitantes em paralelo. O fluxo HTTP com WireMock também foi verificado localmente, incluindo sucesso, `400`, `500` e timeout.
 
 ## Cenário de lentidão em produção
 
@@ -137,7 +143,7 @@ O POST exigiria o escopo `activation:write` e o GET, `activation:read`. Também 
 
 O Dockerfile usa build em dois estágios, Java 21 na imagem final e usuário sem privilégios. Em produção, publicaria a imagem por um pipeline que executa testes, versão a imagem e faz deploy gradual. Usaria PostgreSQL gerenciado, configurações por ambiente, segredos fora da imagem, probes de liveness/readiness e mais de uma instância da aplicação. A restrição única no banco e a reserva condicional de `PROCESSING` mantêm a proteção contra duplicidade entre instâncias. As migrações precisam ser compatíveis com uma implantação gradual.
 
-Antes de uso real, ainda faltam a segurança descrita acima, um contrato de idempotência ou reconciliação com o provedor, métricas e tracing completos, políticas de acesso a dados por sistema de origem e um processo operacional para casos `FAILED` após timeout. Melhorias futuras incluem teste automatizado contra PostgreSQL real com Testcontainers, CI/CD, limitação de taxa, desligamento gracioso e publicação confiável de eventos de conclusão para outros serviços, por exemplo com outbox. O mock local não substitui um provedor real nem garante idempotência.
+Antes de uso real, ainda faltam a segurança descrita acima, um contrato de idempotência ou reconciliação com o provedor, métricas e tracing completos, políticas de acesso a dados por sistema de origem e um processo operacional para casos `FAILED` após timeout. Melhorias futuras incluem limitação de taxa, desligamento gracioso, publicação da imagem pelo CI/CD e publicação confiável de eventos de conclusão para outros serviços, por exemplo com outbox. O mock local não substitui um provedor real nem garante idempotência.
 
 ## Uso de IA
 
