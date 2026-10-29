@@ -34,6 +34,7 @@ public class ActivationRequestController {
 
     @GetMapping("/{id}")
     public ResponseEntity<ActivationRequestResponse> findById(@PathVariable UUID id) {
-        return ResponseEntity.of(service.findById(id));
+        return ResponseEntity.ok(service.findById(id)
+                .orElseThrow(() -> new ActivationRequestNotFoundException(id)));
     }
 }

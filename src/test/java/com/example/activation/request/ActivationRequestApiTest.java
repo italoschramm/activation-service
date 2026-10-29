@@ -34,6 +34,7 @@ import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -103,7 +104,11 @@ class ActivationRequestApiTest {
                         .content("""
                                 {"externalId":"EXT-12345","productCode":"INTERNET-500"}
                                 """))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.title").value("Dados inválidos"))
+                .andExpect(jsonPath("$.errors[0].field").value("customerId"))
+                .andExpect(jsonPath("$.traceId").isNotEmpty());
 
         assertThat(repository.count()).isZero();
     }
@@ -111,7 +116,10 @@ class ActivationRequestApiTest {
     @Test
     void returnsNotFoundForUnknownId() throws Exception {
         mockMvc.perform(get("/api/v1/requests/{id}", UUID.randomUUID()))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.title").value("Solicitação não encontrada"))
+                .andExpect(jsonPath("$.traceId").isNotEmpty());
     }
 
     @Test
@@ -150,8 +158,10 @@ class ActivationRequestApiTest {
                                 {"externalId":"EXT-CONFLICT","customerId":"CUST-10001","productCode":"INTERNET-300"}
                                 """))
                 .andExpect(status().isConflict())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
                 .andExpect(jsonPath("$.detail").value(
-                        "externalId 'EXT-CONFLICT' já existe com customerId ou productCode diferente"));
+                        "externalId 'EXT-CONFLICT' já existe com customerId ou productCode diferente"))
+                .andExpect(jsonPath("$.traceId").isNotEmpty());
 
         assertThat(repository.count()).isEqualTo(1);
     }
@@ -250,6 +260,24 @@ class ActivationRequestApiTest {
                 .andExpect(jsonPath("$.status").value("FAILED"));
         assertThat(repository.findById(UUID.fromString(id)).orElseThrow().getAttemptCount()).isEqualTo(3);
         verifyNoInteractions(provider);
+    }
+
+    @Test
+    void rejectsMalformedJson() throws Exception {
+        mockMvc.perform(post("/api/v1/requests")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{invalid-json"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("O corpo da requisição deve ser um JSON válido."))
+                .andExpect(jsonPath("$.traceId").isNotEmpty());
+    }
+
+    @Test
+    void rejectsInvalidRequestId() throws Exception {
+        mockMvc.perform(get("/api/v1/requests/not-a-uuid"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title").value("Parâmetro inválido"))
+                .andExpect(jsonPath("$.traceId").isNotEmpty());
     }
 
     private String createRequest(String externalId, String productCode) throws Exception {
