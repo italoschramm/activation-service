@@ -2,5 +2,6 @@ target/
 .m2/
 .idea/
 .vscode/
+.metadata/
 *.iml
 .env

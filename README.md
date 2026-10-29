@@ -1,6 +1,6 @@
 # Serviço de ativação de produtos
 
-Projeto do desafio técnico Java Pleno/Sênior. Esta primeira etapa contém a base da aplicação; os endpoints de solicitações e a integração com o provedor serão adicionados nas próximas etapas.
+Projeto do desafio técnico Java Pleno/Sênior. A aplicação já registra e consulta solicitações de ativação. A integração com o provedor será adicionada em uma etapa futura.
 
 ## Requisitos
 
@@ -38,11 +38,30 @@ O endereço padrão do banco é `jdbc:postgresql://localhost:5433/activation`. �
 mvn verify
 ```
 
-Os testes dos fluxos de negócio serão adicionados junto com os respectivos endpoints. O build inicial não precisa de um banco ativo.
+Os testes da API usam H2 em memória. A aplicação usa PostgreSQL; o build não precisa de um banco externo ativo.
+
+## API disponível
+
+Criar solicitação:
+
+```sh
+curl -i -X POST http://localhost:8080/api/v1/requests -H "Content-Type: application/json" -d '{"externalId":"EXT-12345","customerId":"CUST-10001","productCode":"INTERNET-500"}'
+```
+
+A resposta é `201 Created`, com o endereço de consulta no header `Location`. O estado inicial é `PENDING`.
+
+Consultar solicitação:
+
+```sh
+curl -i http://localhost:8080/api/v1/requests/ID_DA_SOLICITACAO
+```
+
+Um ID inexistente retorna `404 Not Found`. Os três campos de entrada são obrigatórios, não podem conter apenas espaços e têm limite de 100 caracteres; dados inválidos retornam `400 Bad Request`.
+
+O esquema do banco é criado pela migração Flyway `V1__create_activation_requests.sql`. O banco impede a repetição de `externalId` por uma restrição única; a resposta da API para esse caso será definida na próxima etapa.
 
 ## Próximas etapas
 
-1. Modelo de solicitação e endpoints de criação e consulta.
-2. Regra de unicidade de `externalId`, inclusive sob concorrência.
-3. Integração simulada com o provedor e transições de status.
-4. Tratamento de erros, testes, análise de produção e documentação final.
+1. Definir a resposta para repetição de `externalId` e testar concorrência.
+2. Integrar o provedor simulado e controlar transições de status.
+3. Padronizar erros, analisar o cenário de produção e concluir a documentação.
