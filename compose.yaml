@@ -1,4 +1,11 @@
 services:
+  provider:
+    image: wiremock/wiremock:3.13.2
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./provider-mock/mappings:/home/wiremock/mappings:ro
+
   db:
     image: postgres:17-alpine
     environment:
@@ -21,11 +28,14 @@ services:
       DB_URL: jdbc:postgresql://db:5432/activation
       DB_USERNAME: activation
       DB_PASSWORD: activation
+      PROVIDER_BASE_URL: http://provider:8080
     ports:
       - "8080:8080"
     depends_on:
       db:
         condition: service_healthy
+      provider:
+        condition: service_started
 
 volumes:
   postgres_data:

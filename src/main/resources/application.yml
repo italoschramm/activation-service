@@ -19,3 +19,11 @@ management:
     health:
       probes:
         enabled: true
+
+activation:
+  provider:
+    base-url: ${PROVIDER_BASE_URL:http://localhost:8081}
+    connect-timeout: ${PROVIDER_CONNECT_TIMEOUT:PT1S}
+    read-timeout: ${PROVIDER_READ_TIMEOUT:PT2S}
+  processing:
+    cron: "${PROCESSING_CRON:*/1 * * * * *}"

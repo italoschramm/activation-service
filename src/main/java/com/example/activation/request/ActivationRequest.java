@@ -12,6 +12,7 @@ import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 
 import java.time.Instant;
+import java.time.Duration;
 import java.util.UUID;
 
 @Entity
@@ -41,6 +42,12 @@ public class ActivationRequest {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Column(name = "attempt_count", nullable = false)
+    private int attemptCount;
+
+    @Column(name = "next_attempt_at", nullable = false)
+    private Instant nextAttemptAt;
+
     protected ActivationRequest() {
     }
 
@@ -56,6 +63,7 @@ public class ActivationRequest {
         Instant now = Instant.now();
         createdAt = now;
         updatedAt = now;
+        nextAttemptAt = now;
     }
 
     @PreUpdate
@@ -89,5 +97,35 @@ public class ActivationRequest {
 
     public Instant getUpdatedAt() {
         return updatedAt;
+    }
+
+    public int getAttemptCount() {
+        return attemptCount;
+    }
+
+    public Instant getNextAttemptAt() {
+        return nextAttemptAt;
+    }
+
+    public void complete() {
+        requireProcessing();
+        status = ActivationStatus.COMPLETED;
+    }
+
+    public void fail() {
+        requireProcessing();
+        status = ActivationStatus.FAILED;
+    }
+
+    public void retryAfter(Duration delay) {
+        requireProcessing();
+        status = ActivationStatus.PENDING;
+        nextAttemptAt = Instant.now().plus(delay);
+    }
+
+    private void requireProcessing() {
+        if (status != ActivationStatus.PROCESSING) {
+            throw new IllegalStateException("A solicitação não está em processamento");
+        }
     }
 }

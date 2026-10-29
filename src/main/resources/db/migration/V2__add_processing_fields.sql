@@ -1,0 +1,5 @@
+ALTER TABLE activation_requests
+    ADD COLUMN attempt_count INTEGER NOT NULL DEFAULT 0;
+
+ALTER TABLE activation_requests
+    ADD COLUMN next_attempt_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP;
