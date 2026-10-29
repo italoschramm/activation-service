@@ -58,6 +58,20 @@ curl -i http://localhost:8080/api/v1/requests/ID_DA_SOLICITACAO
 
 Um ID inexistente retorna `404 Not Found`. Os três campos de entrada são obrigatórios, não podem conter apenas espaços e têm limite de 100 caracteres; dados inválidos retornam `400 Bad Request`.
 
+No PowerShell, use este exemplo para criar e consultar uma solicitação sem repetir o `externalId`:
+
+```powershell
+$body = @{
+    externalId = "EXT-" + [guid]::NewGuid().ToString("N")
+    customerId = "CUST-10001"
+    productCode = "INTERNET-500"
+} | ConvertTo-Json
+
+$created = Invoke-RestMethod -Method Post -Uri "http://localhost:8080/api/v1/requests" -ContentType "application/json" -Body $body
+$created
+Invoke-RestMethod -Uri "http://localhost:8080/api/v1/requests/$($created.id)"
+```
+
 O esquema do banco é criado pela migração Flyway `V1__create_activation_requests.sql`. O banco impede a repetição de `externalId` por uma restrição única; a resposta da API para esse caso será definida na próxima etapa.
 
 ## Próximas etapas

@@ -3,5 +3,8 @@ target/
 .idea/
 .vscode/
 .metadata/
+.classpath
+.project
+.settings/
 *.iml
 .env
