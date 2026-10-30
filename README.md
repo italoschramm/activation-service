@@ -19,6 +19,8 @@ docker compose up -d --build
 
 O Compose expõe a aplicação na porta `8080`, o PostgreSQL na porta `5433` e o WireMock na porta `8081`. Depois que a aplicação iniciar, verifique `http://localhost:8080/actuator/health`. O banco usa um volume Docker para preservar os dados entre reinicializações.
 
+Para explorar e chamar as rotas da API pelo navegador, abra [Swagger UI](http://localhost:8080/swagger-ui.html). A especificação OpenAPI em JSON fica em [http://localhost:8080/v3/api-docs](http://localhost:8080/v3/api-docs). Na página, expanda uma rota, clique em **Try it out**, preencha os parâmetros e clique em **Execute**. O POST retorna um `id`; use esse valor no GET para acompanhar o processamento. O provedor exibido neste projeto é um serviço externo simulado e não aparece entre as rotas da API de ativação.
+
 Para encerrar:
 
 ```sh
@@ -103,7 +105,16 @@ O serviço consulta solicitações `PENDING` a cada segundo. Uma atualização c
 
 As novas tentativas esperam 2 e 4 segundos. Se a aplicação cair enquanto uma solicitação está em `PROCESSING`, ela volta a `PENDING` após 30 segundos para ser reenviada, exceto se a terceira tentativa já tiver começado; nesse caso, fica `FAILED` sem uma quarta chamada. Todas as chamadas ao provedor levam `Idempotency-Key` com o `externalId`, para que um provedor real possa reconhecer repetição após timeout ou queda. O WireMock é apenas um stub e não mantém essa chave; em produção, o provedor deve honrar a idempotência ou oferecer consulta/reconciliação antes de repetir a ativação. Um `FAILED` após timeout significa que não foi possível confirmar a ativação, não uma prova de que o produto ficou inativo.
 
-Para testar pelo Insomnia, use um `externalId` novo em cada POST. O mock devolve sucesso para produtos comuns, `400` para `SIMULATE-400`, `500` para `SIMULATE-500` e demora 5 segundos para `SIMULATE-TIMEOUT`. Consulte a solicitação pelo `id` para acompanhar o status.
+### Simular respostas do provedor
+
+No Swagger UI ou no Insomnia, faça um POST com um `externalId` novo para cada cenário e altere o `productCode` conforme a tabela. Copie o `id` da resposta e consulte `GET /api/v1/requests/{id}` após alguns segundos para ver o resultado. O POST retorna `201` e `PENDING` mesmo quando o provedor simulado vai falhar, pois o processamento ocorre em segundo plano.
+
+| `productCode` | Resposta simulada | Status final esperado no GET |
+| --- | --- | --- |
+| `INTERNET-500` ou outro código comum | Sucesso (`200`) | `COMPLETED` |
+| `SIMULATE-400` | Rejeição (`400`) | `FAILED`, sem nova tentativa |
+| `SIMULATE-500` | Erro temporário (`500`) | `FAILED`, após três tentativas |
+| `SIMULATE-TIMEOUT` | Resposta após 5 segundos; o cliente desiste após 2 segundos | `FAILED`, após três tentativas |
 
 ## Tratamento de erros
 
@@ -115,6 +126,8 @@ Erros da API usam `application/problem+json` com `title`, `status`, `detail`, `i
 | Solicitação inexistente | `404 Not Found`. |
 | Mesmo `externalId` com cliente ou produto diferente | `409 Conflict`. |
 | Erro inesperado no processamento da chamada HTTP | `500 Internal Server Error` com mensagem genérica e `traceId`. |
+
+Para simular erros da própria API, envie um POST sem `customerId` para obter `400`, consulte `GET /api/v1/requests/00000000-0000-0000-0000-000000000000` para obter `404`, ou repita um `externalId` já cadastrado com outro `productCode` para obter `409`. Nesse último caso, o registro original permanece intacto.
 
 A integração é processada depois da resposta do POST. Por isso, erros do provedor não alteram retroativamente o HTTP `201`: a solicitação fica `PENDING` para nova tentativa ou `FAILED`, conforme a política acima, e o consumidor consulta o resultado por GET. O `200` do GET significa que o registro foi encontrado; o resultado da ativação está no campo `status`.
 
